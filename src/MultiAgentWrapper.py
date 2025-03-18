@@ -1,5 +1,5 @@
 import gymnasium as gym
-import highway_env
+from highway_env.vehicle.controller import ControlledVehicle
 import numpy as np
 
 
@@ -14,7 +14,6 @@ class MultiAgentWrapper(gym.Env):
             {
                 "screen_width": 480,
                 "screen_height": 640,
-                "controlled_vehicles": self.num_agents,
                 "centering_position": [0.5, 0.5],
                 "scaling": 3,
                 "show_trajectories": True,
@@ -33,6 +32,9 @@ class MultiAgentWrapper(gym.Env):
                     "action_config": {
                         "type": "ContinuousAction",
                     },
+                },
+                "vehicles": {
+                    "speed_range": [-10, 20],
                 },
             }
         )
@@ -60,3 +62,17 @@ class MultiAgentWrapper(gym.Env):
     # This is meant for the intersection environment
     def window_position(self):
         return np.array([0, 0])
+
+    # Spawn a new vehicle at the start of one of the four lanes
+    def spawn_new_vehicle(self, speed=10):
+        possibleStarts = [
+            np.array([2, -100]),
+            np.array([-100, 2]),
+            np.array([2, 100]),
+            np.array([100, 2]),
+        ]
+        position = possibleStarts[np.random.randint(0, len(possibleStarts))]
+        vehicle = ControlledVehicle(self.env.env.unwrapped.road, position, speed)
+        self.env.env.unwrapped.road.vehicles.append(vehicle)
+        self.num_agents += 1
+        return vehicle
