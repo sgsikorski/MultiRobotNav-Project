@@ -1,5 +1,5 @@
 # Vehicle Dynamics
-MAX_SPEED = 20
+MAX_SPEED = 10
 MIN_SPEED = -10
 
 MAX_ACCELERATION = 1
