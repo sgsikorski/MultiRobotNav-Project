@@ -1,6 +1,8 @@
 import gymnasium as gym
 from highway_env.vehicle.controller import ControlledVehicle
+from util.Agent import Agent
 import numpy as np
+from config import *
 
 
 class MultiAgentWrapper(gym.Env):
@@ -19,7 +21,7 @@ class MultiAgentWrapper(gym.Env):
                 "show_trajectories": True,
                 "spawn_probability": 0,
                 "initial_vehicle_count": 0,
-                "simulation_frequency": 5,
+                "simulation_frequency": CYCLE_FREQUENCY,
                 "observation": {
                     "type": "MultiAgentObservation",
                     "observation_config": {
@@ -34,7 +36,7 @@ class MultiAgentWrapper(gym.Env):
                     },
                 },
                 "vehicles": {
-                    "speed_range": [-10, 20],
+                    "speed_range": [MIN_SPEED, MAX_SPEED],
                 },
             }
         )
@@ -64,15 +66,30 @@ class MultiAgentWrapper(gym.Env):
         return np.array([0, 0])
 
     # Spawn a new vehicle at the start of one of the four lanes
-    def spawn_new_vehicle(self, speed=10):
-        possibleStarts = [
-            np.array([2, -100]),
-            np.array([-100, 2]),
-            np.array([2, 100]),
-            np.array([100, 2]),
-        ]
+    def spawn_new_vehicle(self, spawnedVehicles, speed=10):
+        starts = {
+            tuple([2, -100]),
+            tuple([-100, 2]),
+            tuple([2, 100]),
+            tuple([100, 2]),
+        }
+        possibleStarts = list(
+            starts - {tuple(agent.position) for agent in spawnedVehicles}
+        )
+        if len(possibleStarts) == 0:
+            return None
         position = possibleStarts[np.random.randint(0, len(possibleStarts))]
-        vehicle = ControlledVehicle(self.env.env.unwrapped.road, position, speed)
-        self.env.env.unwrapped.road.vehicles.append(vehicle)
+        vehicle = Agent(
+            self.env.unwrapped.road,
+            np.array(position),
+            speed=speed,
+        )
         self.num_agents += 1
         return vehicle
+
+    def despawn_vehicle(self, agent):
+        self.num_agents -= 1
+        return True
+
+    def reached_destination(self, agent):
+        return np.all(np.abs(agent.position - agent.endPoint) < 5)
