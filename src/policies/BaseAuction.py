@@ -1,7 +1,8 @@
-# TODO: Basic Game Theory Auctioning Policy
+# Basic Game Theory Auctioning Policy
 # This should be the bidding based on distance and velocity to the intersection
 # This is used as a fall back strategy when the LLM policy is not able to make a decision
 import numpy as np
+from config import Role
 
 
 class AuctionPolicy:
@@ -15,6 +16,10 @@ class AuctionPolicy:
         # Sort the agents by priority
         priorityIdx = np.argsort(priorities)
         priority_queue = [agents[idx] for idx in priorityIdx]
+
+        priority_queue[0].role = Role.LEADER
+        for agent in priority_queue[1:]:
+            agent.role = Role.FOLLOWER
         return priority_queue[0], priority_queue[1:]
 
     def get_priority(self, agent) -> float:

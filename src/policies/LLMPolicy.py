@@ -1,4 +1,4 @@
-# TODO: LLM Reasoning Policy
+# LLM Reasoning Policy
 # The LLM should take the intention that was communciated between agents in an intersection zone
 # All other agents will yield to a leader vehicle
 
@@ -7,14 +7,16 @@
 
 import openai
 import os
-from config import Role
+from config import Role, PossibleLocations
+import numpy as np
+import random
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
-
-class LLMPolicy:
-    def __init__(self, location):
-        # TODO: Possibly modify this
+class AgentLLM:
+    def __init__(self, location=None):
+        openai.api_key = os.getenv("OPENAI_API_KEY")
+        if location is None:
+            location = random.choice(PossibleLocations)
         content = f"""
 You are going to {location}.
 There is another agent going to a location. 
@@ -40,12 +42,18 @@ Remembering your task correctly is paramount!
 
         return completion.choices[0].message.content
 
+    def get_priority(self):
+        raise NotImplementedError("get_priority not implemented")
+        prompt = """"""
+
+        priority = self.query("system", prompt, persist=False)
+
     def get_role(self):
         prompt = """
 You have come to a consensus. 
-It is vital you remember what you agreed on with the other agent! 
-If your task is more important than the other agent's task, output the number 2. 
-If your task is less important than the other agent's task, output the number 3.
+It is vital you remember what you agreed on with the other agents! 
+If your task is the most important than all other agents' task, output the number 2. 
+If your task is less important than any other of the agents' task, output the number 3.
 """.strip()
 
         code = self.query("system", prompt, persist=False)
@@ -57,7 +65,18 @@ If your task is less important than the other agent's task, output the number 3.
         if "4" in code:
             return None
 
+
+class LLMPolicy:
     def get_leader_followers(self, agents):
-        raise NotImplementedError(
-            "get_leader_followers for the designated policy is not implemented yet"
-        )
+        priorities = []
+        for agent in agents:
+            priorities.append(agent.llm.get_priority())
+
+        # Sort the agents by priority
+        priorityIdx = np.argsort(priorities)
+        priority_queue = [agents[idx] for idx in priorityIdx]
+
+        priority_queue[0].role = Role.LEADER
+        for agent in priority_queue[1:]:
+            agent.role = Role.FOLLOWER
+        return priority_queue[0], priority_queue[1:]
