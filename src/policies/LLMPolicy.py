@@ -7,7 +7,8 @@
 
 import openai
 import os
-from config import Role, PossibleLocations
+from config import Role, POSSIBLE_LOCATIONS
+from BaseAuction import AuctionPolicy
 import numpy as np
 import random
 
@@ -16,14 +17,14 @@ class AgentLLM:
     def __init__(self, location=None):
         openai.api_key = os.getenv("OPENAI_API_KEY")
         if location is None:
-            location = random.choice(PossibleLocations)
+            location = random.choice(POSSIBLE_LOCATIONS)
         content = f"""
 You are going to {location}.
-There is another agent going to a location. 
-You will have a conversation until you determine whether you have more, less, or the same priority as them depending on the task you and they are performing. 
+There are other agents going to a separate location. You will have communicate with each other.
+You are all in an intersection zone and need to determine who has the highest priority.
+A higher priority means you are going to go first.
 If you are doing the same task or have the same priority then say so. 
 Do not include pleasantries and be concise. 
-Once you have reached a consensus with the other agent, output the number 1 and nothing else. 
 Remembering your task correctly is paramount!
 """.strip()
         initial_msg = {"role": "system", "content": content}
@@ -42,39 +43,35 @@ Remembering your task correctly is paramount!
 
         return completion.choices[0].message.content
 
-    def get_priority(self):
-        raise NotImplementedError("get_priority not implemented")
-        prompt = """"""
+    def add_other_agent(self, agent):
+        prompt = f"""
+There is another agent in the intersection zone now.
+The other agent is going to {agent.task}.
+"""
 
-        priority = self.query("system", prompt, persist=False)
+        code = self.query("system", prompt, persist=True)
 
-    def get_role(self):
-        prompt = """
-You have come to a consensus. 
-It is vital you remember what you agreed on with the other agents! 
-If your task is the most important than all other agents' task, output the number 2. 
-If your task is less important than any other of the agents' task, output the number 3.
-""".strip()
+    def get_priority(self, agent):
+        prompt = f"""
+You have communicated with the rest of the other agents in the intersection zone.
+As a reminder, you are going to {agent.task}. If you have already communicated this, repeat it given any new vehicles.
+You must determine your priority now. Output your priority as a number.
+"""
 
-        code = self.query("system", prompt, persist=False)
+        priority = self.query("system", prompt, persist=True)
 
-        if "2" in code:
-            return Role.LEADER
-        if "3" in code:
-            return Role.FOLLOWER
-        if "4" in code:
-            return None
+        return priority
 
 
 class LLMPolicy:
     def get_leader_followers(self, agents):
-        priorities = []
-        for agent in agents:
-            priorities.append(agent.llm.get_priority())
-
         # Sort the agents by priority
-        priorityIdx = np.argsort(priorities)
-        priority_queue = [agents[idx] for idx in priorityIdx]
+        # As a tiebreaker, use base priority
+        priority_queue = sorted(
+            agents,
+            key=lambda x: (x.llm.get_priority(), AuctionPolicy.get_priority(x)),
+            reverse=True,
+        )
 
         priority_queue[0].role = Role.LEADER
         for agent in priority_queue[1:]:

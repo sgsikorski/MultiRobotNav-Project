@@ -32,7 +32,7 @@ FLOW_RATE_HOUR = FLOW_RATE * 60 * 60  # Vehicles per hour
 
 USE_LLM = True
 
-PossibleLocations = [
+POSSIBLE_LOCATIONS = [
     "hospital",
     "school",
     "home",

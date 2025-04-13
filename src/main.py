@@ -64,6 +64,8 @@ def main():
                 else:
                     agentsInInt[agentsInInt.index(agent)].timeInZone += 1
 
+        # TODO: Have the agents' LLMs communicate with each other
+
         # Begin resolution of agents entering intersection
         # Of the agents in the intersection, one agent will remain at a constant velocity
         # The other agents will yield to the agent that is not yielding

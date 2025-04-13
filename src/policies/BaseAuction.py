@@ -22,7 +22,8 @@ class AuctionPolicy:
             agent.role = Role.FOLLOWER
         return priority_queue[0], priority_queue[1:]
 
-    def get_priority(self, agent) -> float:
+    @staticmethod
+    def get_priority(agent) -> float:
         # p = (v + c) / s * w
         distanceToOrigin = np.linalg.norm(agent.position - np.array([0, 0]))
         speed = np.linalg.norm(agent.velocity)

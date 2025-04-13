@@ -13,6 +13,7 @@ class Agent(ControlledVehicle):
         self.role = None
         # TODO: Change for possible turning
         self.endPoint = np.array([-1 * p if p != 2 else p for p in position])
+        self.task = None
         self.id = hash(self)
         self.llm = AgentLLM(desination) if USE_LLM else None
 
