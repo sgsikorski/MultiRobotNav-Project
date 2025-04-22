@@ -12,6 +12,7 @@ from config import *
 from policies.Policy import Policy
 from util.Agent import Agent
 from util.ActionTypeConversion import DiscreteToContinuous
+from util.TurningDynamics import decelerate_follower
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ def getArgs():
 
 
 def main():
-    logging.basicConfig(filename="logs/main.log", level=logging.INFO)
+    logging.basicConfig(filename="logs/main.log", filemode="w+", level=logging.INFO)
     args = getArgs()
 
     logger.info("Building multi agent simulation environment")
@@ -42,15 +43,10 @@ def main():
     env.env.unwrapped.road.vehicles = []
     agents = []
     spawnedVehicles = []
-
-    # newVehicle = env.spawn_new_vehicle(spawnedVehicles, speed=MAX_SPEED)
-    # agents.append(Agent(newVehicle))
-    # spawnedVehicles.append(newVehicle)
-    # env.env.unwrapped.road.vehicles += spawnedVehicles
+    agentsInInt = []
 
     frames = []
 
-    agentsInInt = []
     logger.info(f"Starting experiment for {args.max_iter} iterations")
     for iteration in range(args.max_iter):
         actions = [[0, 0] for _ in range(env.num_agents)]
@@ -78,7 +74,8 @@ def main():
                     # Don't go backwards
                     if np.any(agentsInInt[idx].velocity > 0):
                         logger.info(f"Agent {agentsInInt[idx]} is slowing down")
-                        actions[idx] = [-5, 0]
+                        a = decelerate_follower(leader, agentsInInt[idx])
+                        actions[idx] = [a, 0]
                 else:
                     actions[idx] = [5, 0]
         # else:

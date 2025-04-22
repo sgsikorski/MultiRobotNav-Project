@@ -9,13 +9,11 @@ class AuctionPolicy:
 
     # Return the leader agent and a list of the followers
     def get_leader_followers(self, agents) -> tuple[dict, list]:
-        priorities = []
-        for agent in agents:
-            priorities += [self.get_priority(agent)]
-
-        # Sort the agents by priority
-        priorityIdx = np.argsort(priorities)
-        priority_queue = [agents[idx] for idx in priorityIdx]
+        priority_queue = sorted(
+            agents,
+            key=lambda x: self.get_priority(x),
+            reverse=True,
+        )
 
         priority_queue[0].role = Role.LEADER
         for agent in priority_queue[1:]:
