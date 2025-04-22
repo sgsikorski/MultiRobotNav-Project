@@ -15,14 +15,20 @@ import logging
 import time
 
 logger = logging.getLogger(__name__)
+openai.api_key = os.getenv("OPENAI_API_KEY")
+if openai.api_key is None:
+    raise ValueError(
+        "OPENAI_API_KEY environment variable not set. Please set it to use the LLM."
+    )
 
 
 class AgentLLM:
     def __init__(self, id, location=None):
+        self.requests_made = 0
         openai.api_key = os.getenv("OPENAI_API_KEY")
         if location is None:
             location = random.choice(POSSIBLE_LOCATIONS)
-        logger.info(f"LLM agent intialized going to {location}")
+        # logger.info(f"LLM agent intialized going to {location}")
         content = f"""
 You are going to {location}. You have the unique id {id}.
 There are other agents going to a separate location. You will have communicate with each other.
@@ -41,6 +47,7 @@ Remembering your task correctly is paramount!
         completion = openai.chat.completions.create(
             model="gpt-4o-mini", messages=self.messages + [new_msg]
         )
+        self.requests_made += 1
 
         if persist:
             self.messages.append(new_msg)

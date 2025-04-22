@@ -31,6 +31,9 @@ def getArgs():
 def V2V_communication(agentsInInt):
     for agent1 in agentsInInt:
         for agent2 in agentsInInt:
+            # Sanity check, should not hit this
+            if not (agent1.llm or agent2.llm):
+                raise ValueError(f"One of the agents does not have its LLM initialized")
             if agent1 != agent2:
                 # Let perpendicular agents know about each other
                 # If an agent is behind another, it won't communicate
@@ -59,11 +62,12 @@ def main():
     policy = Policy(use_llm=args.use_llm)
     logger.info(f"Using policy {policy.policy.__class__.__name__}")
 
-    # Clear any non controlled vehicles
     env.env.unwrapped.road.vehicles = []
     agents = []
     spawnedVehicles = []
     agentsInInt = []
+    numOfCollisions = 0
+    llm_requests_made = 0
 
     frames = []
 
@@ -104,6 +108,7 @@ def main():
             # Speed up any slowed down agents left in environment
             for agent in agents:
                 if np.all(agent.velocity < MAX_SPEED):
+                    idx = agents.index(agent)
                     actions[agents.index(agent)] = [MAX_ACCELERATION, 0]
 
         actions = tuple(actions)
@@ -122,6 +127,8 @@ def main():
         for agent in agents:
             if env.reached_destination(agent):
                 logger.info(f"Removing agent {agent} at iteration {iteration}")
+                if agent.llm:
+                    llm_requests_made += agent.llm.requests_made
                 env.despawn_vehicle(agent)
                 if agent in spawnedVehicles:
                     spawnedVehicles.remove(agent)
@@ -130,7 +137,9 @@ def main():
         agents = [a for a in agents if not env.reached_destination(a)]
         # Remove agents that have passed the intersection
         agentsInInt = [
-            a for a in agentsInInt if not pastOrigin(a.position, a.direction)
+            a
+            for a in agentsInInt
+            if not pastOrigin(a.position, a.direction) and a in agents
         ]
         env.env.unwrapped.road.vehicles += agents
         logger.info(
@@ -141,20 +150,42 @@ def main():
         frames.append(env.render())
         obs = _obs
 
+        colIdx = []
+        for agent in agents:
+            if agent.crashed or agent.hit:
+                numOfCollisions += 1
+                logger.info(f"Agent {agent} has collided at iteration {iteration}")
+                if agent.llm:
+                    llm_requests_made += agent.llm.requests_made
+                env.despawn_vehicle(agent)
+                if agent in spawnedVehicles:
+                    spawnedVehicles.remove(agent)
+                colIdx.append(agents.index(agent))
+        # Remove agents that have crashed
+        if len(colIdx) > 0:
+            agents = [a for i, a in enumerate(agents) if i not in colIdx]
+            agentsInInt = [
+                a for i, a in enumerate(agentsInInt) if i not in colIdx and a in agents
+            ]
+
     # Closing information
+    iteration += 1
     logger.info(f"Logging closing information now")
     logger.info(f"Total number of iterations: {iteration}")
+    logger.info(
+        f"Simulated for {iteration / CYCLE_FREQUENCY} seconds at a rate of {FLOW_RATE} vehicles per second, {FLOW_RATE_HOUR} vehicles per hour"
+    )
     if policy.use_llm:
         logger.info(
             f"Average time to calculate LLM priority: {policy.avg_time:.4f} seconds"
         )
         logger.info(f"Number of calls to LLM: {policy.num_calls}")
-    logger.info(f"")
+    logger.info(f"Total number of collisions: {numOfCollisions}")
 
     env.close()
 
     if args.test:
-        imageio.mimsave(f"../res/out.mp4", frames, fps=10)
+        imageio.mimsave(f"../res/out.mp4", frames, fps=30)
 
 
 if __name__ == "__main__":
