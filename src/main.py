@@ -28,6 +28,26 @@ def getArgs():
     return ap.parse_args()
 
 
+def V2V_communication(agentsInInt):
+    for agent1 in agentsInInt:
+        for agent2 in agentsInInt:
+            if agent1 != agent2:
+                # Let perpendicular agents know about each other
+                # If an agent is behind another, it won't communicate
+                dir_dot = np.dot(agent1.direction, agent2.direction)
+                if not np.isclose(dir_dot, -1):
+                    agent1.llm.add_other_agent(agent2)
+                    agent2.llm.add_other_agent(agent1)
+                elif not np.isclose(dir_dot, 1):
+                    # Agent 1 is in front of agent 2
+                    if np.linalg.norm(
+                        agent1.position - np.array([0, 0])
+                    ) < np.linalg.norm(agent2.position - np.array([0, 0])):
+                        agent1.llm.add_other_agent_behind(agent2)
+                    else:
+                        agent2.llm.add_other_agent_behind(agent1)
+
+
 def main():
     logging.basicConfig(filename="logs/main.log", filemode="w+", level=logging.INFO)
     args = getArgs()
@@ -60,7 +80,8 @@ def main():
                 else:
                     agentsInInt[agentsInInt.index(agent)].timeInZone += 1
 
-        # TODO: Have the agents' LLMs communicate with each other
+        if args.use_llm and len(agentsInInt) > 1:
+            V2V_communication(agentsInInt)
 
         # Begin resolution of agents entering intersection
         # Of the agents in the intersection, one agent will remain at a constant velocity
@@ -77,12 +98,13 @@ def main():
                         a = decelerate_follower(leader, agentsInInt[idx])
                         actions[idx] = [a, 0]
                 else:
-                    actions[idx] = [5, 0]
-        # else:
-        #     # Speed up any slowed down agents
-        #     for agent in agents:
-        #         if np.all(agent.velocity < MAX_SPEED):
-        #             actions[agents.index(agent)] = [1, 0]
+                    # Leader should not slow down
+                    actions[idx] = [MAX_ACCELERATION, 0]
+        else:
+            # Speed up any slowed down agents left in environment
+            for agent in agents:
+                if np.all(agent.velocity < MAX_SPEED):
+                    actions[agents.index(agent)] = [MAX_ACCELERATION, 0]
 
         actions = tuple(actions)
         assert (
@@ -118,6 +140,16 @@ def main():
 
         frames.append(env.render())
         obs = _obs
+
+    # Closing information
+    logger.info(f"Logging closing information now")
+    logger.info(f"Total number of iterations: {iteration}")
+    if policy.use_llm:
+        logger.info(
+            f"Average time to calculate LLM priority: {policy.avg_time:.4f} seconds"
+        )
+        logger.info(f"Number of calls to LLM: {policy.num_calls}")
+    logger.info(f"")
 
     env.close()
 

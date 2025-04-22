@@ -8,18 +8,23 @@
 import openai
 import os
 from config import Role, POSSIBLE_LOCATIONS
-from BaseAuction import AuctionPolicy
+from policies.BaseAuction import AuctionPolicy
 import numpy as np
 import random
+import logging
+import time
+
+logger = logging.getLogger(__name__)
 
 
 class AgentLLM:
-    def __init__(self, location=None):
+    def __init__(self, id, location=None):
         openai.api_key = os.getenv("OPENAI_API_KEY")
         if location is None:
             location = random.choice(POSSIBLE_LOCATIONS)
+        logger.info(f"LLM agent intialized going to {location}")
         content = f"""
-You are going to {location}.
+You are going to {location}. You have the unique id {id}.
 There are other agents going to a separate location. You will have communicate with each other.
 You are all in an intersection zone and need to determine who has the highest priority.
 A higher priority means you are going to go first.
@@ -46,32 +51,50 @@ Remembering your task correctly is paramount!
     def add_other_agent(self, agent):
         prompt = f"""
 There is another agent in the intersection zone now.
-The other agent is going to {agent.task}.
+They have the id {agent.id} and are going to {agent.task}.
 """
 
-        code = self.query("system", prompt, persist=True)
+        code = self.query("user", prompt, persist=True)
+
+    def add_other_agent_behind(self, agent):
+        prompt = f"""
+There is another agent in the intersection zone now and they are behind you.
+They have the id {agent.id}. They will receive a lower priority than you. No matter what!
+        """
+
+        code = self.query("user", prompt, persist=True)
 
     def get_priority(self, agent):
         prompt = f"""
 You have communicated with the rest of the other agents in the intersection zone.
-As a reminder, you are going to {agent.task}. If you have already communicated this, repeat it given any new vehicles.
+As a reminder, you are going to {agent.task} and your id is {agent.id}. If you have already communicated this, repeat it given any new vehicles.
 You must determine your priority now. Output your priority as a number.
 """
 
         priority = self.query("system", prompt, persist=True)
 
+        logger.info(f"Agent {agent} priority: {priority}")
         return priority
 
 
 class LLMPolicy:
+    def __init__(self):
+        self.avg_time = 0
+        self.num_calls = 0
+
     def get_leader_followers(self, agents):
         # Sort the agents by priority
         # As a tiebreaker, use base priority
+        start = time.time()
         priority_queue = sorted(
             agents,
             key=lambda x: (x.llm.get_priority(), AuctionPolicy.get_priority(x)),
             reverse=True,
         )
+        diff = time.time() - start
+        self.num_calls += 1
+        self.avg_time = (self.avg_time * (self.num_calls - 1) + diff) / self.num_calls
+        logger.info(f"Time to calculate LLM priority: {diff:.4f} seconds")
 
         priority_queue[0].role = Role.LEADER
         for agent in priority_queue[1:]:

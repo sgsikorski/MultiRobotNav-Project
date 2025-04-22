@@ -15,7 +15,7 @@ class Agent(ControlledVehicle):
         self.endPoint = np.array([self.get_endpoint(p) for p in position])
         self.task = None
         self.id = hash(self)
-        self.llm = AgentLLM(desination) if USE_LLM else None
+        self.llm = AgentLLM(self.id, desination) if USE_LLM else None
 
     def __repr__(self):
         return f"Agent({self.position}, {self.speed})"
