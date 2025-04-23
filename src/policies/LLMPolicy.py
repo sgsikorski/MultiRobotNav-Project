@@ -23,14 +23,16 @@ if openai.api_key is None:
 
 
 class AgentLLM:
-    def __init__(self, id, location=None):
+    def __init__(self, id, location=None, task=None):
         self.requests_made = 0
-        openai.api_key = os.getenv("OPENAI_API_KEY")
         if location is None:
             location = random.choice(POSSIBLE_LOCATIONS)
-        # logger.info(f"LLM agent intialized going to {location}")
+        if task is None:
+            task = random.choice(POSSIBLE_LOCATIONS[location])
+
+        logger.info(f"LLM agent intialized going to {location} to complete {task}")
         content = f"""
-You are going to {location}. You have the unique id {id}.
+You are going to {location} to {task}. You have the unique id {id}.
 There are other agents going to a separate location. You will have communicate with each other.
 You are all in an intersection zone and need to determine who has the highest priority.
 A higher priority means you are going to go first.

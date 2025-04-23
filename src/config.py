@@ -32,9 +32,40 @@ FLOW_RATE_HOUR = FLOW_RATE * 60 * 60  # Vehicles per hour
 
 USE_LLM = True
 
+# Possible locations that a vehicle is going to
 POSSIBLE_LOCATIONS = [
-    "hospital",
-    "school",
-    "home",
-    "grocery store",
+    "Hospital",
+    "Grocery Store",
+    "School",
+    "Work",
+    "Airport",
+    "Home",
 ]
+
+# Possible tasks that a vehicle is going to do, ranked by priority
+# This may change priority if it's an important location but not urgent task
+# I.e, going to a hospital but not in an emergency
+POSSIBLE_TASKS = {
+    "Hospital": [
+        "get stitches after a deep cut",
+        "get an annual physical checkup",
+        "get a flu vaccine before winter",
+    ],
+    "Grocery Store": [
+        "buy medicine for a fever",
+        "do weekly grocery shopping",
+        "get snacks for movie night",
+    ],
+    "School": [
+        "take a final exam",
+        "submit a project",
+        "attend a voluntary club meeting",
+    ],
+    "Work": ["present at a team meeting", "pick up a work laptop", "clean out desk"],
+    "Airport": [
+        "travel for a job interview",
+        "catch a flight for a wedding",
+        "pick up a relative",
+    ],
+    "Home": ["fix a burst pipe", "do laundry", "decorate for the holidays"],
+}
