@@ -8,6 +8,7 @@ import random
 
 
 class Agent(Vehicle):
+    timeToGoal = 0
     timeInZone = 0
     role = None
     goal_destination = None

@@ -72,14 +72,17 @@ def main():
     agents = []
     spawnedVehicles = []
     agentsInInt = []
+
     numOfCollisions = 0
     llm_requests_made = 0
+    agents_reached_goal = 0
+    total_time_to_goal = 0
 
     frames = []
 
     newVehicle = env.spawn_new_vehicle(spawnedVehicles, speed=MAX_SPEED)
     newVehicle.position = np.array([2.0, 100.0])
-    newVehicle.endPoint = np.array([2.0, -100.0])
+    newVehicle.endPoint = np.array([100, 2])
     newVehicle.heading = -3.14 / 2
     agents.append(newVehicle)
     spawnedVehicles.append(newVehicle)
@@ -125,12 +128,10 @@ def main():
                     actions[idx] = [a, delta]
         elif len(agentsInInt) == 1:
             # Only one agent in the intersection zone
-            idx = agents.index(agentsInInt[0])
-            a = MAX_ACCELERATION if agentsInInt[0].speed < MAX_SPEED else 0
-            delta = (
-                get_steering_angle(agentsInInt[0]) if agentsInInt[0].is_turning() else 0
-            )
-            actions[idx] = [a, delta]
+            agent = agentsInInt[0]
+            a = MAX_ACCELERATION if agent.speed < MAX_SPEED else 0
+            delta = get_steering_angle(agent) if agent.is_turning() else 0
+            actions[agents.index(agent)] = [a, delta]
         # else:
         #     # Speed up any slowed down agents left in environment
         #     for agent in agents:
@@ -143,11 +144,12 @@ def main():
         ), f"Length of actions {len(actions)} does not match number of agents {env.num_agents}"
         for i, agent in enumerate(agents):
             agent.action = {"steering": actions[i][1], "acceleration": actions[i][0]}
+            agent.timeToGoal += 1
         if len(actions) > 0:
             env.step(actions)
 
         # Spawn a new vehicle in environment
-        if random.random() < FLOW_RATE / CYCLE_FREQUENCY:
+        if random.random() < 0:  # FLOW_RATE / CYCLE_FREQUENCY:
             newVehicle = env.spawn_new_vehicle(spawnedVehicles, speed=MAX_SPEED)
             if newVehicle is None:
                 continue
@@ -162,6 +164,8 @@ def main():
                 logger.info(
                     f"Removing agent {agent.__repr__()} at iteration {iteration}"
                 )
+                agents_reached_goal += 1
+                total_time_to_goal += agent.timeToGoal
                 if agent.llm:
                     llm_requests_made += agent.llm.requests_made
                 env.despawn_vehicle(agent)
@@ -214,6 +218,12 @@ def main():
     logger.info(f"Total number of iterations: {iteration}")
     logger.info(
         f"Simulated for {iteration / CYCLE_FREQUENCY} seconds at a rate of {FLOW_RATE} vehicles per second, {FLOW_RATE_HOUR} vehicles per hour"
+    )
+    logger.info(
+        f"Average time to goal: {total_time_to_goal / agents_reached_goal:.4f} seconds"
+    )
+    logger.info(
+        f"Throughput: {agents_reached_goal / (iteration / CYCLE_FREQUENCY * 60):.4f} vehicles per minute"
     )
     if policy.use_llm:
         logger.info(

@@ -1,6 +1,8 @@
 import math
 import numpy as np
 
+INTERSECTION_RADIUS = 25  # m
+
 # Vehicle Dynamics
 MAX_SPEED = 10
 MIN_SPEED = -10

@@ -1,7 +1,8 @@
 import numpy as np
+from config import INTERSECTION_RADIUS
 
 
-def inIntersectionZone(position, radius=25):
+def inIntersectionZone(position, radius=INTERSECTION_RADIUS):
     origin = np.array([0, 0])
     return np.linalg.norm(position - origin) < radius
 

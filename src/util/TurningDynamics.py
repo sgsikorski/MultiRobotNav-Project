@@ -28,6 +28,7 @@ def decelerate_follower(leader, follower):
 
 
 def get_steering_angle(agent):
+    return math.atan2(agent.LENGTH, TURN_RADIUS)
     v_mag = math.hypot(agent.velocity[0], agent.velocity[1])
     if v_mag == 0:
         return 0.0
