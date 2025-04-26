@@ -1,7 +1,15 @@
 # TODO: Implement the turning dynamics of the vehicle
 
 import numpy as np
-from config import MAX_ACCELERATION, MAX_STEERING, MIN_ACCELERATION, MIN_STEERING
+import math
+from config import (
+    MAX_ACCELERATION,
+    MAX_STEERING,
+    MIN_ACCELERATION,
+    MIN_STEERING,
+    TURN_RADIUS,
+    LANE_OFFSET,
+)
 
 
 def decelerate_follower(leader, follower):
@@ -19,18 +27,25 @@ def decelerate_follower(leader, follower):
     return acceleration
 
 
-# Given a vehicles position and velocity, return the acceleration and steering angle to turn left
-def turnLeft(position, velocity):
-    # Calculate the angle of the velocity vector
-    angle = np.arctan2(velocity[1], velocity[0])
-    # Calculate the angle of the vector from the vehicle to the origin
-    angleToOrigin = np.arctan2(position[1], position[0])
-    # Calculate the angle to turn
-    angleToTurn = angleToOrigin - angle
-    # Calculate the acceleration and steering angle
-    acceleration = 1
-    steering = 1
+def get_steering_angle(agent):
+    v_mag = math.hypot(agent.velocity[0], agent.velocity[1])
+    if v_mag == 0:
+        return 0.0
 
-    acceleration = np.clip(acceleration, MIN_ACCELERATION, MAX_ACCELERATION)
-    steering = np.clip(steering, MIN_STEERING, MAX_STEERING)
-    return np.array([acceleration, steering])
+    dx = agent.endPoint[0] - agent.position[0]
+    dy = agent.endPoint[1] - agent.position[1]
+    if dx <= LANE_OFFSET * 2:
+        dx = 0
+    if dy <= LANE_OFFSET * 2:
+        dy = 0
+    distance_to_goal = np.linalg.norm([dx, dy])
+
+    if distance_to_goal == 0:
+        return 0.0
+
+    dot = agent.direction[0] * dx + agent.direction[1] * dy
+    det = agent.direction[0] * dy - agent.direction[1] * dx
+    angle_to_goal = math.atan2(det, dot)
+
+    delta = math.atan2(2 * agent.LENGTH * math.sin(angle_to_goal), distance_to_goal)
+    return np.clip(delta, MIN_STEERING, MAX_STEERING)

@@ -12,7 +12,7 @@ from config import *
 from policies.Policy import Policy
 from util.Agent import Agent
 from util.ActionTypeConversion import DiscreteToContinuous
-from util.TurningDynamics import decelerate_follower
+from util.TurningDynamics import decelerate_follower, get_steering_angle
 
 logger = logging.getLogger(__name__)
 
@@ -56,13 +56,15 @@ def main():
     args = getArgs()
 
     logger.info("Building multi agent simulation environment")
-    env = MultiAgentWrapper(num_agents=0)
+    env = MultiAgentWrapper()
     obs, info = env.reset()
 
     policy = Policy(use_llm=args.use_llm)
     logger.info(f"Using policy {policy.policy.__class__.__name__}")
 
-    env.env.unwrapped.road.vehicles = []
+    env.unwrapped.road.vehicles.clear()
+    env.unwrapped.controlled_vehicles.clear()
+
     agents = []
     spawnedVehicles = []
     agentsInInt = []
@@ -70,6 +72,13 @@ def main():
     llm_requests_made = 0
 
     frames = []
+
+    newVehicle = env.spawn_new_vehicle(spawnedVehicles, speed=MAX_SPEED)
+    newVehicle.position = np.array([2.0, 100.0])
+    newVehicle.endPoint = np.array([2.0, -100.0])
+    newVehicle.heading = -3.14 / 2
+    agents.append(newVehicle)
+    spawnedVehicles.append(newVehicle)
 
     logger.info(f"Starting experiment for {args.max_iter} iterations")
     for iteration in range(args.max_iter):
@@ -98,28 +107,44 @@ def main():
                 if idx != lIdx:
                     # Don't go backwards
                     if np.any(agentsInInt[idx].velocity > 0):
+                        agent = agentsInInt[idx]
                         logger.info(f"Agent {agentsInInt[idx]} is slowing down")
-                        a = decelerate_follower(leader, agentsInInt[idx])
-                        actions[idx] = [a, 0]
+                        a = decelerate_follower(leader, agent)
+                        delta = get_steering_angle(agent) if agent.is_turning() else 0
+                        actions[idx] = [a, delta]
                 else:
                     # Leader should not slow down
-                    actions[idx] = [MAX_ACCELERATION, 0]
-        else:
-            # Speed up any slowed down agents left in environment
-            for agent in agents:
-                if np.all(agent.velocity < MAX_SPEED):
-                    idx = agents.index(agent)
-                    actions[agents.index(agent)] = [MAX_ACCELERATION, 0]
+                    a = MAX_ACCELERATION if leader.speed < MAX_SPEED else 0
+                    delta = get_steering_angle(leader) if leader.is_turning() else 0
+                    actions[idx] = [a, delta]
+        elif len(agentsInInt) == 1:
+            # Only one agent in the intersection zone
+            idx = agents.index(agentsInInt[0])
+            a = MAX_ACCELERATION if agentsInInt[0].speed < MAX_SPEED else 0
+            delta = (
+                get_steering_angle(agentsInInt[0]) if agentsInInt[0].is_turning() else 0
+            )
+            actions[idx] = [a, delta]
+        # else:
+        #     # Speed up any slowed down agents left in environment
+        #     for agent in agents:
+        #         if agent.speed < MAX_SPEED:
+        #             actions[agents.index(agent)] = 4  # [MAX_ACCELERATION, 0]
 
         actions = tuple(actions)
         assert (
             len(actions) == env.num_agents
         ), f"Length of actions {len(actions)} does not match number of agents {env.num_agents}"
-        _obs, rewards, done, truncated, info = env.step(actions)
+        for i, agent in enumerate(agents):
+            agent.action = {"steering": actions[i][1], "acceleration": actions[i][0]}
+        if len(actions) > 0:
+            env.step(actions)
 
         # Spawn a new vehicle in environment
         if random.random() < FLOW_RATE / CYCLE_FREQUENCY:
             newVehicle = env.spawn_new_vehicle(spawnedVehicles, speed=MAX_SPEED)
+            if newVehicle is None:
+                continue
             agents.append(newVehicle)
             spawnedVehicles.append(newVehicle)
             logger.info(f"Spawning new vehicle {newVehicle} at iteration {iteration}")
@@ -141,14 +166,17 @@ def main():
             for a in agentsInInt
             if not pastOrigin(a.position, a.direction) and a in agents
         ]
-        env.env.unwrapped.road.vehicles += agents
         logger.info(
             f"There exists a total of {env.num_agents} agents in the environment"
         )
         logger.info(f"Iteration {iteration} completed")
 
-        frames.append(env.render())
-        obs = _obs
+        if args.debug:
+            env.render_mode = "human"
+            env.render()
+        if args.test:
+            env.render_mode = "rgb_array"
+            frames.append(env.render())
 
         colIdx = []
         for agent in agents:

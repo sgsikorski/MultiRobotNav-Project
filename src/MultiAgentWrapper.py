@@ -1,18 +1,18 @@
 import gymnasium as gym
 from highway_env.vehicle.controller import ControlledVehicle
+from highway_env.envs import IntersectionEnv
 from util.Agent import Agent
 import numpy as np
 from config import *
 
 
-class MultiAgentWrapper(gym.Env):
+class MultiAgentWrapper(IntersectionEnv):
+    num_agents = 0
 
-    def __init__(self, num_agents, env_name="intersection-v1"):
-        super().__init__()
-        self.num_agents = num_agents
-        self.env = gym.make(env_name, render_mode="rgb_array")
-
-        self.env.unwrapped.config.update(
+    @classmethod
+    def default_config(cls):
+        config = super().default_config()
+        config.update(
             {
                 "screen_width": 480,
                 "screen_height": 640,
@@ -33,6 +33,10 @@ class MultiAgentWrapper(gym.Env):
                     "type": "MultiAgentAction",
                     "action_config": {
                         "type": "ContinuousAction",
+                        "steering_range": [MIN_STEERING, MAX_STEERING],
+                        "longitudinal": True,
+                        "lateral": True,
+                        "dynamical": True,
                     },
                 },
                 "vehicles": {
@@ -40,25 +44,13 @@ class MultiAgentWrapper(gym.Env):
                 },
             }
         )
+        return config
 
-        self.observation_space = gym.spaces.Tuple(
-            [self.env.observation_space] * self.num_agents
-        )
-
-    def reset(self):
-        return self.env.reset()
-
-    def step(self, actions):
-        return self.env.step(actions)
-
-    def render(self, mode="human"):
-        viewer = self.env.unwrapped.viewer
+    def render(self):
+        viewer = self.unwrapped.viewer
         if viewer:
             viewer.window_position = self.window_position.__get__(viewer, type(viewer))
-        return self.env.render()
-
-    def close(self):
-        self.env.close()
+        return super().render()
 
     # Function overload to always center on the origin of the screen
     # This is meant for the intersection environment
@@ -67,28 +59,34 @@ class MultiAgentWrapper(gym.Env):
 
     # Spawn a new vehicle at the start of one of the four lanes
     def spawn_new_vehicle(self, spawnedVehicles, speed=10):
-        starts = {
-            tuple([2, -100]),
-            tuple([-100, 2]),
-            tuple([2, 100]),
-            tuple([100, 2]),
-        }
         possibleStarts = list(
-            starts - {tuple(agent.position) for agent in spawnedVehicles}
+            set(POSSIBLE_STARTS) - {tuple(agent.position) for agent in spawnedVehicles}
         )
         if len(possibleStarts) == 0:
             return None
         position = possibleStarts[np.random.randint(0, len(possibleStarts))]
+        posIdx = POSSIBLE_STARTS.index(position)
+
         vehicle = Agent(
-            self.env.unwrapped.road,
+            self.unwrapped.road,
             np.array(position),
             speed=speed,
         )
+        vehicle.position = position
+        vehicle.endPoint = ENDS[posIdx]
+        vehicle.heading = HEADINGS[posIdx]
         self.num_agents += 1
+        if vehicle not in self.unwrapped.road.vehicles:
+            self.unwrapped.road.vehicles.append(vehicle)
+        self.unwrapped.controlled_vehicles.append(vehicle)
         return vehicle
 
     def despawn_vehicle(self, agent):
         self.num_agents -= 1
+        if agent in self.unwrapped.road.vehicles:
+            self.unwrapped.road.vehicles.remove(agent)
+        if agent in self.unwrapped.controlled_vehicles:
+            self.unwrapped.controlled_vehicles.remove(agent)
         return True
 
     def reached_destination(self, agent):

@@ -1,19 +1,28 @@
 from .CollisionAvoidance import pastOrigin
 from highway_env.vehicle.controller import ControlledVehicle
+from highway_env.vehicle.kinematics import Vehicle
 import numpy as np
 from policies.LLMPolicy import AgentLLM
-from config import USE_LLM, POSSIBLE_LOCATIONS, POSSIBLE_TASKS
+from config import USE_LLM, POSSIBLE_LOCATIONS, POSSIBLE_TASKS, ENDS
 import random
 
 
-class Agent(ControlledVehicle):
-    def __init__(self, road, position, **kwargs):
-        super().__init__(road=road, position=position, **kwargs)
+class Agent(Vehicle):
+
+    def __init__(
+        self,
+        road,
+        position,
+        heading: float = 0,
+        speed: float = 0,
+        predition_type: str = "constant_steering",
+    ):
+        super().__init__(road, position, heading, speed, predition_type)
         self.pastIntersection = pastOrigin(self.position, self.direction)
         self.timeInZone = 0
         self.role = None
-        self.endPoint = np.array([self.get_endpoint(p) for p in position])
-        self.id = hash(self)
+        # self.endPoint = self.get_endpoint(position)
+        self.id = id(self)
         self.goal_destination, self.task = self.decide_agent_task()
         self.llm = (
             AgentLLM(self.id, self.goal_destination, self.task) if USE_LLM else None
@@ -24,10 +33,19 @@ class Agent(ControlledVehicle):
 
     def get_endpoint(self, position):
         # TODO: Implement turning dynamics first
-        # # Decide that the vehicle is turning
-        # if random.random() < 0.2:
-        #     position[1], position[0] = position[0], position[1]
-        return -1 * position if int(position) != 2 else position
+        # Decide that the vehicle is turning
+        if random.random() < 1.2:
+            return np.array(random.choice(list(ENDS)))
+        return np.array([-1 * p if abs(int(p)) != 2 else p for p in position])
+
+    def is_turning(self):
+        to_goal = self.endPoint - self.position
+        to_goal_normalized = to_goal / np.linalg.norm(to_goal)
+
+        dot = np.dot(self.direction, to_goal_normalized)
+        angle_diff = np.arccos(np.clip(dot, -1.0, 1.0))
+        res = np.isclose(angle_diff, 0, atol=1e-2)
+        return not np.isclose(angle_diff, 0, atol=1e-2)
 
     # Change this for an experimentation for LLM reasoning on location and task
     def decide_agent_task(self):

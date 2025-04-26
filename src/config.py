@@ -1,14 +1,16 @@
 import math
+import numpy as np
 
 # Vehicle Dynamics
 MAX_SPEED = 10
 MIN_SPEED = -10
 
 MAX_ACCELERATION = 5  # m/s^2
-MAX_STEERING = math.pi / 4.0  # rads
+MAX_STEERING = math.pi / 3.0  # rads
 MIN_ACCELERATION = -5  # m/s^2
-MIN_STEERING = -math.pi / 4.0  # rads
+MIN_STEERING = -math.pi / 3.0  # rads
 LANE_OFFSET = 2  # m
+TURN_RADIUS = 10  # m
 
 from enum import Enum, auto
 
@@ -30,7 +32,30 @@ CYCLE_FREQUENCY = 5  # Hz
 FLOW_RATE = 1  # Vehicles per second
 FLOW_RATE_HOUR = FLOW_RATE * 60 * 60  # Vehicles per hour
 
-USE_LLM = True
+POSSIBLE_STARTS = [
+    tuple([-2, -100]),
+    tuple([2, 100]),
+    tuple([-100, 2]),
+    tuple([100, -2]),
+]
+
+STARTS = [
+    np.array([-2, -100]),
+    np.array([2, 100]),
+    np.array([-100, 2]),
+    np.array([100, -2]),
+]
+
+HEADINGS = [math.pi / 2, -math.pi / 2, 0, -math.pi]
+
+ENDS = [
+    np.array([-2, 100]),
+    np.array([2, -100]),
+    np.array([100, 2]),
+    np.array([-100, -2]),
+]
+
+USE_LLM = False
 
 # Possible locations that a vehicle is going to
 POSSIBLE_LOCATIONS = [
