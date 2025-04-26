@@ -55,7 +55,7 @@ ENDS = [
     np.array([-100, -2]),
 ]
 
-USE_LLM = False
+USE_LLM = True
 
 # Possible locations that a vehicle is going to
 POSSIBLE_LOCATIONS = [

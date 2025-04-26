@@ -8,6 +8,11 @@ import random
 
 
 class Agent(Vehicle):
+    timeInZone = 0
+    role = None
+    goal_destination = None
+    task = None
+    llm = None
 
     def __init__(
         self,
@@ -19,24 +24,10 @@ class Agent(Vehicle):
     ):
         super().__init__(road, position, heading, speed, predition_type)
         self.pastIntersection = pastOrigin(self.position, self.direction)
-        self.timeInZone = 0
-        self.role = None
-        # self.endPoint = self.get_endpoint(position)
         self.id = id(self)
-        self.goal_destination, self.task = self.decide_agent_task()
-        self.llm = (
-            AgentLLM(self.id, self.goal_destination, self.task) if USE_LLM else None
-        )
 
     def __repr__(self):
         return f"Agent({self.position}, {self.speed})"
-
-    def get_endpoint(self, position):
-        # TODO: Implement turning dynamics first
-        # Decide that the vehicle is turning
-        if random.random() < 1.2:
-            return np.array(random.choice(list(ENDS)))
-        return np.array([-1 * p if abs(int(p)) != 2 else p for p in position])
 
     def is_turning(self):
         to_goal = self.endPoint - self.position
@@ -47,8 +38,9 @@ class Agent(Vehicle):
         res = np.isclose(angle_diff, 0, atol=1e-2)
         return not np.isclose(angle_diff, 0, atol=1e-2)
 
+    @staticmethod
     # Change this for an experimentation for LLM reasoning on location and task
-    def decide_agent_task(self):
+    def decide_agent_task():
         destination = random.choice(POSSIBLE_LOCATIONS)
         task = random.choice(POSSIBLE_TASKS[destination])
         return destination, task

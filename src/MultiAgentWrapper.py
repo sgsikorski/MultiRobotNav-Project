@@ -4,6 +4,7 @@ from highway_env.envs import IntersectionEnv
 from util.Agent import Agent
 import numpy as np
 from config import *
+from policies.LLMPolicy import AgentLLM
 
 
 class MultiAgentWrapper(IntersectionEnv):
@@ -72,9 +73,20 @@ class MultiAgentWrapper(IntersectionEnv):
             np.array(position),
             speed=speed,
         )
+
+        """
+        All of this is necessary because highway-env will internally call the Agent __init__ method
+        on each simulation cycle step. The initial settings should not be reset on each step.
+        This makes sure that the LLM is set to the true first value
+        """
         vehicle.position = position
         vehicle.endPoint = ENDS[posIdx]
         vehicle.heading = HEADINGS[posIdx]
+        vehicle.goal_destination, vehicle.task = Agent.decide_agent_task()
+        vehicle.llm = (
+            AgentLLM(vehicle.id, vehicle.endPoint, vehicle.task) if USE_LLM else None
+        )
+
         self.num_agents += 1
         if vehicle not in self.unwrapped.road.vehicles:
             self.unwrapped.road.vehicles.append(vehicle)

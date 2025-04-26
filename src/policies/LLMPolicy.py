@@ -30,7 +30,7 @@ class AgentLLM:
         if task is None:
             task = random.choice(POSSIBLE_LOCATIONS[location])
 
-        logger.info(f"LLM agent intialized going to {location} to complete {task}")
+        logger.info(f"LLM agent intialized going to {location} to {task}")
         content = f"""
 You are going to {location} to {task}. You have the unique id {id}.
 There are other agents going to a separate location. You will have communicate with each other.
