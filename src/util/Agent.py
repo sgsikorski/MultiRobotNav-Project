@@ -13,6 +13,7 @@ class Agent(Vehicle):
     goal_destination = None
     task = None
     llm = None
+    id = None
 
     def __init__(
         self,
@@ -24,10 +25,9 @@ class Agent(Vehicle):
     ):
         super().__init__(road, position, heading, speed, predition_type)
         self.pastIntersection = pastOrigin(self.position, self.direction)
-        self.id = id(self)
 
     def __repr__(self):
-        return f"Agent({self.position}, {self.speed})"
+        return f"Agent({self.position}, {self.speed}, {self.id})"
 
     def is_turning(self):
         to_goal = self.endPoint - self.position

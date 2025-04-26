@@ -38,6 +38,10 @@ def V2V_communication(agentsInInt):
                 # Let perpendicular agents know about each other
                 # If an agent is behind another, it won't communicate
                 dir_dot = np.dot(agent1.direction, agent2.direction)
+                if np.isclose(dir_dot, 0, atol=0.1) or np.isclose(
+                    agent1.heading, agent2.heading, atol=1e-2
+                ):
+                    continue
                 if not np.isclose(dir_dot, -1):
                     agent1.llm.add_other_agent(agent2)
                     agent2.llm.add_other_agent(agent1)
@@ -101,14 +105,16 @@ def main():
         # The other agents will yield to the agent that is not yielding
         if len(agentsInInt) > 1:
             leader, followers = policy.get_leader_followers(agentsInInt)
-            logger.info(f"Agent {leader} will lead")
+            logger.info(f"Agent {leader.__repr__()} will lead")
             lIdx = agentsInInt.index(leader)
             for idx in range(len(agentsInInt)):
                 if idx != lIdx:
                     # Don't go backwards
                     if np.any(agentsInInt[idx].velocity > 0):
                         agent = agentsInInt[idx]
-                        logger.info(f"Agent {agentsInInt[idx]} is slowing down")
+                        logger.info(
+                            f"Agent {agentsInInt[idx].__repr__()} is slowing down"
+                        )
                         a = decelerate_follower(leader, agent)
                         delta = get_steering_angle(agent) if agent.is_turning() else 0
                         actions[idx] = [a, delta]
@@ -147,11 +153,15 @@ def main():
                 continue
             agents.append(newVehicle)
             spawnedVehicles.append(newVehicle)
-            logger.info(f"Spawning new vehicle {newVehicle} at iteration {iteration}")
+            logger.info(
+                f"Spawning new vehicle {newVehicle.__repr__()} at iteration {iteration}"
+            )
 
         for agent in agents:
             if env.reached_destination(agent):
-                logger.info(f"Removing agent {agent} at iteration {iteration}")
+                logger.info(
+                    f"Removing agent {agent.__repr__()} at iteration {iteration}"
+                )
                 if agent.llm:
                     llm_requests_made += agent.llm.requests_made
                 env.despawn_vehicle(agent)
@@ -182,7 +192,9 @@ def main():
         for agent in agents:
             if agent.crashed or agent.hit:
                 numOfCollisions += 1
-                logger.info(f"Agent {agent} has collided at iteration {iteration}")
+                logger.info(
+                    f"Agent {agent.__repr__()} has collided at iteration {iteration}"
+                )
                 if agent.llm:
                     llm_requests_made += agent.llm.requests_made
                 env.despawn_vehicle(agent)
@@ -205,9 +217,9 @@ def main():
     )
     if policy.use_llm:
         logger.info(
-            f"Average time to calculate LLM priority: {policy.avg_time:.4f} seconds"
+            f"Average time to calculate LLM priority: {policy.policy.avg_time:.4f} seconds"
         )
-        logger.info(f"Number of calls to LLM: {policy.num_calls}")
+        logger.info(f"Number of calls to LLM: {policy.policy.num_calls}")
     logger.info(f"Total number of collisions: {numOfCollisions}")
 
     env.close()

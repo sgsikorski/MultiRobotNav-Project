@@ -6,7 +6,6 @@ class Policy:
     def __init__(self, use_llm=False):
         self.use_llm = use_llm
         self.policy = LLMPolicy() if use_llm else AuctionPolicy()
-        self.policy = AuctionPolicy()
 
     def get_leader_followers(self, agents):
         if not hasattr(self.policy, "get_leader_followers"):

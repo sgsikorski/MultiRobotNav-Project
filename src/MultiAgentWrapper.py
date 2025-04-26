@@ -79,12 +79,15 @@ class MultiAgentWrapper(IntersectionEnv):
         on each simulation cycle step. The initial settings should not be reset on each step.
         This makes sure that the LLM is set to the true first value
         """
+        vehicle.id = id(vehicle)
         vehicle.position = position
         vehicle.endPoint = ENDS[posIdx]
         vehicle.heading = HEADINGS[posIdx]
         vehicle.goal_destination, vehicle.task = Agent.decide_agent_task()
         vehicle.llm = (
-            AgentLLM(vehicle.id, vehicle.endPoint, vehicle.task) if USE_LLM else None
+            AgentLLM(vehicle, vehicle.goal_destination, vehicle.task)
+            if USE_LLM
+            else None
         )
 
         self.num_agents += 1

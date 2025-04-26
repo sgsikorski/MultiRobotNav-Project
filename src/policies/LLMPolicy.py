@@ -7,7 +7,7 @@
 
 import openai
 import os
-from config import Role, POSSIBLE_LOCATIONS
+from config import Role, POSSIBLE_LOCATIONS, LANE_OFFSET
 from policies.BaseAuction import AuctionPolicy
 import numpy as np
 import random
@@ -23,7 +23,7 @@ if openai.api_key is None:
 
 
 class AgentLLM:
-    def __init__(self, id, location=None, task=None):
+    def __init__(self, agent, location=None, task=None):
         self.requests_made = 0
         if location is None:
             location = random.choice(POSSIBLE_LOCATIONS)
@@ -32,12 +32,17 @@ class AgentLLM:
 
         logger.info(f"LLM agent intialized going to {location} to {task}")
         content = f"""
-You are going to {location} to {task}. You have the unique id {id}.
-There are other agents going to a separate location. You will have communicate with each other.
+You are going to {location} to {task}. You have the unique id {agent.id}.
+There are other agents going to a separate location and have other tasks of various importance.
+You will have communicate with each other.
 You are all in an intersection zone and need to determine who has the highest priority.
-A higher priority means you are going to go first.
+A higher priority means you are going to go first. 1 is the highest priority.
 If you are doing the same task or have the same priority then say so. 
-Do not include pleasantries and be concise. 
+Do not include pleasantries and be concise.
+Consider your current dynamics:
+Current speed: {agent.speed}
+Current distance until you're not in the intersection: {np.linalg.norm(agent.position-np.array([0, 0])) + agent.LENGTH + LANE_OFFSET}
+Time spent in the intersection zone: {agent.timeInZone}
 Remembering your task correctly is paramount!
 """.strip()
         initial_msg = {"role": "system", "content": content}
@@ -60,7 +65,11 @@ Remembering your task correctly is paramount!
     def add_other_agent(self, agent):
         prompt = f"""
 There is another agent in the intersection zone now.
-They have the id {agent.id} and are going to {agent.task}.
+They have the id {agent.id} and are going to {agent.goal_destination} to {agent.task}.
+Consider their dynamics:
+Current speed: {agent.speed}
+Current distance until they're not in the intersection: {np.linalg.norm(agent.position-np.array([0, 0])) + agent.LENGTH + LANE_OFFSET}
+Time spent in the intersection zone: {agent.timeInZone}
 """
 
         code = self.query("user", prompt, persist=True)
@@ -69,15 +78,16 @@ They have the id {agent.id} and are going to {agent.task}.
         prompt = f"""
 There is another agent in the intersection zone now and they are behind you.
 They have the id {agent.id}. They will receive a lower priority than you. No matter what!
-        """
+"""
 
         code = self.query("user", prompt, persist=True)
 
     def get_priority(self, agent):
         prompt = f"""
 You have communicated with the rest of the other agents in the intersection zone.
-As a reminder, you are going to {agent.task} and your id is {agent.id}. If you have already communicated this, repeat it given any new vehicles.
-You must determine your priority now. Output your priority as a number.
+As a reminder, you are going to {agent.goal_destination} to {agent.task} and your id is {agent.id}.
+If you have already communicated this, revaluate your priority given agents that no longer communciate and new agents that have.
+You must determine your priority now. Output your priority as a number where a higher priority means you are going to go first.
 """
 
         priority = self.query("system", prompt, persist=True)
@@ -97,8 +107,7 @@ class LLMPolicy:
         start = time.time()
         priority_queue = sorted(
             agents,
-            key=lambda x: (x.llm.get_priority(), AuctionPolicy.get_priority(x)),
-            reverse=True,
+            key=lambda x: (x.llm.get_priority(x), AuctionPolicy.get_priority(x)),
         )
         diff = time.time() - start
         self.num_calls += 1
