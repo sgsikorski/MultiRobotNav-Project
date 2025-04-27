@@ -62,9 +62,6 @@ USE_LLM = True
 # Possible locations that a vehicle is going to
 POSSIBLE_LOCATIONS = [
     "Hospital",
-    "Grocery Store",
-    "School",
-    "Work",
     "Airport",
     "Home",
 ]
@@ -78,20 +75,9 @@ POSSIBLE_TASKS = {
         "get an annual physical checkup",
         "get a flu vaccine before winter",
     ],
-    "Grocery Store": [
-        "buy medicine for a fever",
-        "do weekly grocery shopping",
-        "get snacks for movie night",
-    ],
-    "School": [
-        "take a final exam",
-        "submit a project",
-        "attend a voluntary club meeting",
-    ],
-    "Work": ["present at a team meeting", "pick up a work laptop", "clean out desk"],
     "Airport": [
-        "travel for a job interview",
-        "catch a flight for a wedding",
+        "catch a flight leaving in one hour",
+        "catch a flight leaving in three hours",
         "pick up a relative",
     ],
     "Home": ["fix a burst pipe", "do laundry", "decorate for the holidays"],

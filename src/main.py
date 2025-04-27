@@ -82,7 +82,7 @@ def main():
 
     newVehicle = env.spawn_new_vehicle(spawnedVehicles, speed=MAX_SPEED)
     newVehicle.position = np.array([2.0, 100.0])
-    newVehicle.endPoint = np.array([100, 2])
+    newVehicle.endPoint = np.array([2.0, -100.0])
     newVehicle.heading = -3.14 / 2
     agents.append(newVehicle)
     spawnedVehicles.append(newVehicle)
@@ -109,23 +109,21 @@ def main():
         if len(agentsInInt) > 1:
             leader, followers = policy.get_leader_followers(agentsInInt)
             logger.info(f"Agent {leader.__repr__()} will lead")
-            lIdx = agentsInInt.index(leader)
-            for idx in range(len(agentsInInt)):
-                if idx != lIdx:
-                    # Don't go backwards
-                    if np.any(agentsInInt[idx].velocity > 0):
-                        agent = agentsInInt[idx]
-                        logger.info(
-                            f"Agent {agentsInInt[idx].__repr__()} is slowing down"
-                        )
-                        a = decelerate_follower(leader, agent)
-                        delta = get_steering_angle(agent) if agent.is_turning() else 0
-                        actions[idx] = [a, delta]
-                else:
-                    # Leader should not slow down
-                    a = MAX_ACCELERATION if leader.speed < MAX_SPEED else 0
-                    delta = get_steering_angle(leader) if leader.is_turning() else 0
+
+            # Leader should not slow down
+            a = MAX_ACCELERATION if leader.speed < MAX_SPEED else 0
+            delta = get_steering_angle(leader) if leader.is_turning() else 0
+            actions[idx] = [a, delta]
+
+            # Followers will slow down based on vehicle in front of them in the priority queue
+            for idx, follower in enumerate(followers):
+                if follower.speed > 0:
+                    a = decelerate_follower(
+                        leader if idx == 0 else followers[idx - 1], follower
+                    )
+                    delta = get_steering_angle(agent) if agent.is_turning() else 0
                     actions[idx] = [a, delta]
+
         elif len(agentsInInt) == 1:
             # Only one agent in the intersection zone
             agent = agentsInInt[0]
@@ -149,7 +147,7 @@ def main():
             env.step(actions)
 
         # Spawn a new vehicle in environment
-        if random.random() < 0:  # FLOW_RATE / CYCLE_FREQUENCY:
+        if random.random() < FLOW_RATE / CYCLE_FREQUENCY:
             newVehicle = env.spawn_new_vehicle(spawnedVehicles, speed=MAX_SPEED)
             if newVehicle is None:
                 continue
