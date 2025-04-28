@@ -20,9 +20,15 @@ def decelerate_follower(leader, follower):
     leader_distance = np.linalg.norm(leader.position - np.array([0, 0]))
     t_leader = (leader_distance + leader.LENGTH + LANE_OFFSET) / leader.speed
 
-    acceleration = np.min(
-        (2 * (follower_distance - follower.speed * t_leader) / (t_leader**2))
+    acceleration = (
+        2
+        * (
+            (follower_distance + LANE_OFFSET + follower.LENGTH)
+            - follower.speed * t_leader
+        )
+        / (t_leader**2)
     )
+
     acceleration = np.clip(acceleration, MIN_ACCELERATION, MAX_ACCELERATION)
     return acceleration
 

@@ -6,6 +6,7 @@ import random
 import numpy as np
 import argparse
 import logging
+import time
 
 from util.CollisionAvoidance import inIntersectionZone, pastOrigin
 from config import *
@@ -15,6 +16,8 @@ from util.ActionTypeConversion import DiscreteToContinuous
 from util.TurningDynamics import decelerate_follower, get_steering_angle
 
 logger = logging.getLogger(__name__)
+lg = logging.getLogger("V2V")
+avg_v2v = []
 
 
 def getArgs():
@@ -29,6 +32,7 @@ def getArgs():
 
 
 def V2V_communication(agentsInInt):
+    start = time.time()
     for agent1 in agentsInInt:
         for agent2 in agentsInInt:
             # Sanity check, should not hit this
@@ -36,12 +40,7 @@ def V2V_communication(agentsInInt):
                 raise ValueError(f"One of the agents does not have its LLM initialized")
             if agent1 != agent2:
                 # Let perpendicular agents know about each other
-                # If an agent is behind another, it won't communicate
                 dir_dot = np.dot(agent1.direction, agent2.direction)
-                if np.isclose(dir_dot, 0, atol=0.1) or np.isclose(
-                    agent1.heading, agent2.heading, atol=1e-2
-                ):
-                    continue
                 if not np.isclose(dir_dot, -1):
                     agent1.llm.add_other_agent(agent2)
                     agent2.llm.add_other_agent(agent1)
@@ -51,13 +50,22 @@ def V2V_communication(agentsInInt):
                         agent1.position - np.array([0, 0])
                     ) < np.linalg.norm(agent2.position - np.array([0, 0])):
                         agent1.llm.add_other_agent_behind(agent2)
+                        agent2.llm.add_other_agent_ahead(agent1)
                     else:
                         agent2.llm.add_other_agent_behind(agent1)
+                        agent1.llm.add_other_agent_ahead(agent2)
+    diff = time.time() - start
+    avg_v2v.append(diff)
+    lg.info(f"Time to calculate V2V communication: {diff:.4f} seconds")
+    lg.info(
+        f"Average time to calculate V2V communication: {np.mean(avg_v2v):.4f} seconds"
+    )
 
 
 def main():
-    logging.basicConfig(filename="logs/main.log", filemode="w+", level=logging.INFO)
     args = getArgs()
+    fname = f"logs/{'llm' if args.use_llm else 'auction'}_{FLOW_RATE_HOUR}_test.log"
+    logging.basicConfig(filename=fname, filemode="w+", level=logging.INFO)
 
     logger.info("Building multi agent simulation environment")
     env = MultiAgentWrapper()
@@ -80,12 +88,20 @@ def main():
 
     frames = []
 
-    newVehicle = env.spawn_new_vehicle(spawnedVehicles, speed=MAX_SPEED)
-    newVehicle.position = np.array([2.0, 100.0])
-    newVehicle.endPoint = np.array([2.0, -100.0])
-    newVehicle.heading = -3.14 / 2
-    agents.append(newVehicle)
-    spawnedVehicles.append(newVehicle)
+    if args.debug:
+        newVehicle = env.spawn_new_vehicle(spawnedVehicles, speed=MAX_SPEED)
+        newVehicle.position = np.array([2.0, 100.0])
+        newVehicle.endPoint = np.array([2.0, -100.0])
+        newVehicle.heading = -3.14 / 2
+        agents.append(newVehicle)
+        spawnedVehicles.append(newVehicle)
+
+        newVehicle2 = env.spawn_new_vehicle(spawnedVehicles, speed=MAX_SPEED)
+        newVehicle2.position = np.array([90, -2.0])
+        newVehicle2.endPoint = np.array([-100.0, -2.0])
+        newVehicle2.heading = -math.pi
+        agents.append(newVehicle2)
+        spawnedVehicles.append(newVehicle2)
 
     logger.info(f"Starting experiment for {args.max_iter} iterations")
     for iteration in range(args.max_iter):
@@ -113,7 +129,7 @@ def main():
             # Leader should not slow down
             a = MAX_ACCELERATION if leader.speed < MAX_SPEED else 0
             delta = get_steering_angle(leader) if leader.is_turning() else 0
-            actions[idx] = [a, delta]
+            actions[agents.index(leader)] = [a, delta]
 
             # Followers will slow down based on vehicle in front of them in the priority queue
             for idx, follower in enumerate(followers):
@@ -130,11 +146,13 @@ def main():
             a = MAX_ACCELERATION if agent.speed < MAX_SPEED else 0
             delta = get_steering_angle(agent) if agent.is_turning() else 0
             actions[agents.index(agent)] = [a, delta]
-        # else:
-        #     # Speed up any slowed down agents left in environment
-        #     for agent in agents:
-        #         if agent.speed < MAX_SPEED:
-        #             actions[agents.index(agent)] = 4  # [MAX_ACCELERATION, 0]
+
+        for agent in agents:
+            if agent not in agentsInInt:
+                if agent.speed < MAX_SPEED:
+                    actions[agents.index(agent)] = [MAX_ACCELERATION, 0]
+                else:
+                    actions[agents.index(agent)] = [0, 0]
 
         actions = tuple(actions)
         assert (

@@ -1,7 +1,7 @@
 import math
 import numpy as np
 
-INTERSECTION_RADIUS = 25  # m
+INTERSECTION_RADIUS = 30  # m
 
 # Vehicle Dynamics
 MAX_SPEED = 10
@@ -31,7 +31,7 @@ class Action(Enum):
 
 
 CYCLE_FREQUENCY = 5  # Hz
-FLOW_RATE = 1  # Vehicles per second
+FLOW_RATE = 2  # Vehicles per second
 FLOW_RATE_HOUR = FLOW_RATE * 60 * 60  # Vehicles per hour
 
 POSSIBLE_STARTS = [

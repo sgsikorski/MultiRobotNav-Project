@@ -30,7 +30,7 @@ class AgentLLM:
         if task is None:
             task = random.choice(POSSIBLE_LOCATIONS[location])
 
-        logger.info(f"LLM agent intialized going to {location} to {task}")
+        logger.info(f"LLM agent intialized going to {location}")
         content = f"""
 You are going to {location} to {task}. You have the unique id {agent.id}.
 There are other agents going to a separate location and have other tasks of various importance.
@@ -70,6 +70,7 @@ Consider their dynamics:
 Current speed: {agent.speed}
 Current distance until they're not in the intersection: {np.linalg.norm(agent.position-np.array([0, 0])) + agent.LENGTH + LANE_OFFSET}
 Time spent in the intersection zone: {agent.timeInZone}
+You should focus on their desination and task and value those more when determing your priority!
 """
 
         code = self.query("user", prompt, persist=True)
@@ -82,17 +83,26 @@ They have the id {agent.id}. They will receive a lower priority than you. No mat
 
         code = self.query("user", prompt, persist=True)
 
+    def add_other_agent_ahead(self, agent):
+        prompt = f"""
+There is another agent in the intersection zone now and they are ahead you.
+They have the id {agent.id}. They will receive a higher priority than you. No matter what!
+"""
+
+        code = self.query("user", prompt, persist=True)
+
     def get_priority(self, agent):
         prompt = f"""
 You have communicated with the rest of the other agents in the intersection zone.
 As a reminder, you are going to {agent.goal_destination} to {agent.task} and your id is {agent.id}.
 If you have already communicated this, revaluate your priority given agents that no longer communciate and new agents that have.
-You must determine your priority now. Output your priority as a number where a higher priority means you are going to go first.
+You must determine your priority now. A higher priority means you are going to go first. 1 is the highest priority.
+Output the priority as a number. Only output the number!
 """
 
-        priority = self.query("system", prompt, persist=True)
+        priority = self.query("user", prompt, persist=True)
 
-        logger.info(f"Agent {agent} priority: {priority}")
+        logger.info(f"Agent {agent.__repr__()} priority: {priority}")
         return priority
 
 
@@ -104,15 +114,28 @@ class LLMPolicy:
     def get_leader_followers(self, agents):
         # Sort the agents by priority
         # As a tiebreaker, use base priority
-        start = time.time()
+        priorities = set()
+
+        def key_sort(x):
+            start = time.time()
+            model_p = x.llm.get_priority(x)
+            diff = time.time() - start
+            self.num_calls += 1
+            self.avg_time = (
+                self.avg_time * (self.num_calls - 1) + diff
+            ) / self.num_calls
+            logger.info(f"Time to calculate LLM priority: {diff:.4f} seconds")
+            auction_p = AuctionPolicy.get_priority(x)
+            if model_p in priorities:
+                logging.info(f"Fallback policy used")
+            else:
+                priorities.add(model_p)
+            return (model_p, auction_p)
+
         priority_queue = sorted(
             agents,
-            key=lambda x: (x.llm.get_priority(x), AuctionPolicy.get_priority(x)),
+            key=key_sort,
         )
-        diff = time.time() - start
-        self.num_calls += 1
-        self.avg_time = (self.avg_time * (self.num_calls - 1) + diff) / self.num_calls
-        logger.info(f"Time to calculate LLM priority: {diff:.4f} seconds")
 
         priority_queue[0].role = Role.LEADER
         for agent in priority_queue[1:]:

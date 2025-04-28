@@ -3,6 +3,9 @@
 # This is used as a fall back strategy when the LLM policy is not able to make a decision
 import numpy as np
 from config import Role
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AuctionPolicy:
@@ -12,7 +15,6 @@ class AuctionPolicy:
         priority_queue = sorted(
             agents,
             key=lambda x: self.get_priority(x),
-            reverse=True,
         )
 
         priority_queue[0].role = Role.LEADER
