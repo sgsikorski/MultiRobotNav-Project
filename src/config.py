@@ -31,7 +31,7 @@ class Action(Enum):
 
 
 CYCLE_FREQUENCY = 5  # Hz
-FLOW_RATE = 2  # Vehicles per second
+FLOW_RATE = 0.5  # Vehicles per second
 FLOW_RATE_HOUR = FLOW_RATE * 60 * 60  # Vehicles per hour
 
 POSSIBLE_STARTS = [
@@ -71,8 +71,8 @@ POSSIBLE_LOCATIONS = [
 # I.e, going to a hospital but not in an emergency
 POSSIBLE_TASKS = {
     "Hospital": [
+        "go to the ER in an ambulance",
         "get stitches after a deep cut",
-        "get an annual physical checkup",
         "get a flu vaccine before winter",
     ],
     "Airport": [
@@ -82,3 +82,25 @@ POSSIBLE_TASKS = {
     ],
     "Home": ["fix a burst pipe", "do laundry", "decorate for the holidays"],
 }
+
+GROUND_TRUTH_MATRIX = {
+    "Hospital": {
+        "go to the ER in an ambulance": 1,
+        "get stitches after a deep cut": 4,
+        "get a flu vaccine before winter": 7,
+    },
+    "Airport": {
+        "catch a flight leaving in one hour": 2,
+        "catch a flight leaving in three hours": 5,
+        "pick up a relative": 6,
+    },
+    "Home": {
+        "fix a burst pipe": 3,
+        "do laundry": 8,
+        "decorate for the holidays": 9,
+    },
+}
+
+GROUND_TRUTH_FLATTEN = [
+    task for location in GROUND_TRUTH_MATRIX for task in GROUND_TRUTH_MATRIX[location]
+]

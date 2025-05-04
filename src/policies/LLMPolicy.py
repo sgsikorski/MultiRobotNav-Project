@@ -7,7 +7,14 @@
 
 import openai
 import os
-from config import Role, POSSIBLE_LOCATIONS, LANE_OFFSET
+from config import (
+    Role,
+    POSSIBLE_LOCATIONS,
+    LANE_OFFSET,
+    POSSIBLE_TASKS,
+    GROUND_TRUTH_MATRIX,
+    GROUND_TRUTH_FLATTEN,
+)
 from policies.BaseAuction import AuctionPolicy
 import numpy as np
 import random
@@ -136,6 +143,28 @@ class LLMPolicy:
             agents,
             key=key_sort,
         )
+
+        determinedTaskPriority = []
+        for agent in priority_queue:
+            determinedTaskPriority.append(
+                GROUND_TRUTH_MATRIX[agent.goal_destination][agent.task]
+            )
+
+        is_sorted = np.all(
+            determinedTaskPriority[i] <= determinedTaskPriority[i + 1]
+            for i in range(len(determinedTaskPriority) - 1)
+        )
+
+        if not is_sorted:
+            for i in range(len(determinedTaskPriority) - 1):
+                current_rank = determinedTaskPriority[i]
+                next_rank = determinedTaskPriority[i + 1]
+                if current_rank > next_rank:
+                    logger.warning(
+                        f"  '{GROUND_TRUTH_FLATTEN[current_rank]}' (rank {current_rank}) should come after '{GROUND_TRUTH_FLATTEN[next_rank]}' (rank {next_rank})"
+                    )
+        else:
+            logger.info("All tasks are in the correct order.")
 
         priority_queue[0].role = Role.LEADER
         for agent in priority_queue[1:]:
