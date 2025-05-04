@@ -14,20 +14,19 @@ from config import (
 
 def decelerate_follower(leader, follower):
     dot_dir = np.dot(leader.direction, follower.direction)
-    if np.isclose(dot_dir, -1) or np.isclose(dot_dir, 1):
-        return 0
     follower_distance = np.linalg.norm(follower.position - np.array([0, 0]))
     leader_distance = np.linalg.norm(leader.position - np.array([0, 0]))
+    if np.isclose(dot_dir, -1) or np.isclose(dot_dir, 1):
+        return 0
     t_leader = (leader_distance + leader.LENGTH + LANE_OFFSET) / leader.speed
 
     acceleration = (
         2
         * (
-            (follower_distance + LANE_OFFSET + follower.LENGTH)
+            (follower_distance - LANE_OFFSET - follower.LENGTH)
             - follower.speed * t_leader
         )
-        / (t_leader**2)
-    )
+    ) / (t_leader**2)
 
     acceleration = np.clip(acceleration, MIN_ACCELERATION, MAX_ACCELERATION)
     return acceleration

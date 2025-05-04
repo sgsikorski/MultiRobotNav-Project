@@ -83,6 +83,7 @@ class MultiAgentWrapper(IntersectionEnv):
         vehicle.position = position
         vehicle.endPoint = ENDS[posIdx]
         vehicle.heading = HEADINGS[posIdx]
+        vehicle.laneNum = posIdx
         vehicle.goal_destination, vehicle.task = Agent.decide_agent_task()
         vehicle.llm = (
             AgentLLM(vehicle, vehicle.goal_destination, vehicle.task)

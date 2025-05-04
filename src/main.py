@@ -64,7 +64,7 @@ def V2V_communication(agentsInInt):
 
 def main():
     args = getArgs()
-    fname = f"logs/{'llm' if args.use_llm else 'auction'}_{FLOW_RATE_HOUR}_test.log"
+    fname = f"logs/{'llm' if args.use_llm else 'auction'}_{FLOW_RATE_HOUR}_full.log"
     logging.basicConfig(filename=fname, filemode="w+", level=logging.INFO)
 
     logger.info("Building multi agent simulation environment")
@@ -93,15 +93,25 @@ def main():
         newVehicle.position = np.array([2.0, 100.0])
         newVehicle.endPoint = np.array([2.0, -100.0])
         newVehicle.heading = -3.14 / 2
+        newVehicle.laneNum = 1
         agents.append(newVehicle)
         spawnedVehicles.append(newVehicle)
 
         newVehicle2 = env.spawn_new_vehicle(spawnedVehicles, speed=MAX_SPEED)
-        newVehicle2.position = np.array([90, -2.0])
+        newVehicle2.position = np.array([100, -2.0])
         newVehicle2.endPoint = np.array([-100.0, -2.0])
         newVehicle2.heading = -math.pi
+        newVehicle2.laneNum = 3
         agents.append(newVehicle2)
         spawnedVehicles.append(newVehicle2)
+
+        newVehicle3 = env.spawn_new_vehicle(spawnedVehicles, speed=MAX_SPEED)
+        newVehicle3.position = np.array([2.0, 120.0])
+        newVehicle3.endPoint = np.array([2.0, -100.0])
+        newVehicle3.heading = -3.14 / 2
+        newVehicle3.laneNum = 1
+        agents.append(newVehicle3)
+        spawnedVehicles.append(newVehicle3)
 
     logger.info(f"Starting experiment for {args.max_iter} iterations")
     for iteration in range(args.max_iter):
@@ -138,7 +148,7 @@ def main():
                         leader if idx == 0 else followers[idx - 1], follower
                     )
                     delta = get_steering_angle(agent) if agent.is_turning() else 0
-                    actions[idx] = [a, delta]
+                    actions[agents.index(follower)] = [a, delta]
 
         elif len(agentsInInt) == 1:
             # Only one agent in the intersection zone
@@ -147,12 +157,14 @@ def main():
             delta = get_steering_angle(agent) if agent.is_turning() else 0
             actions[agents.index(agent)] = [a, delta]
 
-        for agent in agents:
-            if agent not in agentsInInt:
+        for i, agent in enumerate(agents):
+            if agent not in agentsInInt or pastOrigin(
+                agent.position, agent.direction, 0
+            ):
                 if agent.speed < MAX_SPEED:
-                    actions[agents.index(agent)] = [MAX_ACCELERATION, 0]
+                    actions[i] = [MAX_ACCELERATION, 0]
                 else:
-                    actions[agents.index(agent)] = [0, 0]
+                    actions[i] = [0, 0]
 
         actions = tuple(actions)
         assert (
@@ -239,7 +251,7 @@ def main():
         f"Average time to goal: {total_time_to_goal / agents_reached_goal:.4f} seconds"
     )
     logger.info(
-        f"Throughput: {agents_reached_goal / (iteration / CYCLE_FREQUENCY * 60):.4f} vehicles per minute"
+        f"Throughput: {agents_reached_goal / (iteration / CYCLE_FREQUENCY):.4f} vehicles per minute"
     )
     if policy.use_llm:
         logger.info(
@@ -251,7 +263,7 @@ def main():
     env.close()
 
     if args.test:
-        imageio.mimsave(f"../res/out.mp4", frames, fps=30)
+        imageio.mimsave(f"../res/test.mp4", frames, fps=30)
 
 
 if __name__ == "__main__":

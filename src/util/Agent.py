@@ -15,6 +15,7 @@ class Agent(Vehicle):
     task = None
     llm = None
     id = None
+    laneNum = None
 
     def __init__(
         self,
