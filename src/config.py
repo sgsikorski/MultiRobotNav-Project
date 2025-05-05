@@ -102,5 +102,13 @@ GROUND_TRUTH_MATRIX = {
 }
 
 GROUND_TRUTH_FLATTEN = [
-    task for location in GROUND_TRUTH_MATRIX for task in GROUND_TRUTH_MATRIX[location]
+    "go to the ER in an ambulance",
+    "catch a flight leaving in one hour",
+    "fix a burst pipe",
+    "get stitches after a deep cut",
+    "catch a flight leaving in three hours",
+    "pick up a relative",
+    "get a flu vaccine before winter",
+    "do laundry",
+    "decorate for the holidays",
 ]
